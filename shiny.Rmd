@@ -1,0 +1,166 @@
+---
+title: "Meetup CONRE/RLadies Outubro Rosa - Shiny - Gabriel Teotônio"
+author: "Marina Merlo (anotações palestra)"
+date: "10/16/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+https://github.com/gabrielteotonio
+
+## O que é shiny
+
+pode deixar rodando na nuvem
+
+instruções do server (backend) -> interface do usuário (frontend)
+
+Anatomia
+
+```{r}
+library(shiny)
+ui <- fluidPage #frontend
+
+server <- reactive()#as funções e coisas do site
+
+```
+
+O server.R é o que você consegue aproveitar do código que você fez pra você mesmo (modelo, gráfico, etc)
+Deixa claro quais são os parâmetros a serem inseridos pelo usuário
+
+O ui.R é mais próximo da linguagem de frontend, indicando como será a interface do usuário, quais tipos de input serão requeridos e as opções
+
+global.R faz as chamadas de pacotes, manipulação dos dados, referencia o server.R, o ui.R e o .csv de origem.
+
+## Lidando com banco de dados
+
+Dar preferência para o .feather ou . RDS para otimizar a performance do aplicativo
+
+#conectando-se a um grande volume de dados
+
+R é single-threaded por default
+
+Database: postgres, mongoDB, bigquery (cloud do google), hive -> shiny app
+
+o shiny requer as consultas e a DB volta o dado processado
+
+Não calcular coisas grandes na aplicação! mas sim no DB, para otimizar performance
+
+```{r}
+library(dbplyr) #versão dplyr pra poder trabalhar com DB
+library(DBI)
+
+con <- dbConnect(....) #estabelece a conexão
+
+tbl(con,"flights") %<% #passa a conexão e o nome da tabela
+  select(...) #faz tudo o que faria como se estivesse no seu environment
+show_query() #mostra qual a query em SQL
+collect() #retona a tabela consultada para o ambiente local
+pull() #pra quando retornar um vetor e não tabela
+
+#não retorna o número linhas! só número de colunas (lazy)
+
+```
+
+#cuidado com credenciais
+
+- criptografar credenciais com o pacote keyring
+- use o arquivo de configuração
+- variaveis de ambiente usando o arquivo .Renviron
+- usando as opções de comendo do R Base
+- solicite credenciais usando o R Studio IDE
+
+## Testando sua aplicação
+
+
+```{r}
+
+
+library(shinyloadtest)
+
+#grava uma sessão típica do usuário para o aplicativo
+#repita a sessão em paralelo, simulando muitos usuários simultâneos acessando o aplicativo
+
+record_session() #grava onde a aplicação está hosteada
+
+shynicannon recording.log endereçohost --workers 20 --loaded-duration-minutes 5  #na linha de comando
+#endereçohost: http da aplicação
+#workers: número de usuários simulados
+#loaded-duration-minutes: tempo que a aplicação está acordada, isso é, que simula novos usuários caso um encerre para que n=20 sempre.
+
+load_runs() #recupera o log
+shinyloadtest_report() #exporta um relatório automático do desempenho
+
+#está rápida o suficiente?
+
+#Não:
+library(profvis)
+#ferramenta para ajudar a entender como o R gasta o tempo dele
+
+profvis({runapp('Download\app')})
+
+#retorna o código e dois gráficos de barra com o tempo e a memória utilizada
+
+#otimizar
+
+```
+
+
+Comparar diferentes aplicações - ex., pegando os dados do CSV ou de um .feather
+
+
+Tire sua base da aplicação, conecte com outros bancos (inclusive google sheets)
+
+##Deploy
+
+Botando no ar!
+
+diferenças entre o servidor e o que você rodou na sua máquina:
+
+Sistema operacional
+Dependências
+Versão do R
+Pacote
+
+Algumas opções:
+
+shinyapps.io
+shiny server (open source)
+shiny server pro
+
+#Docker
+
+facilita a criação, implantação e execução de aplicativos usando conteiners. 
+
+Imagem: modelos prontos para uso com instruçoes para criar um container docker. define o código do continer, bibliotecas, variaveis de ambiente etc 
+Abstrai a caixinha das dependências, pode mover de PC pra PC e ele vai funcionar (ou do PC pro servidor)
+
+```{r}
+library(plumber)
+
+#pacote que converse seu código em uma REST API
+
+api <- plumb('arquivo.R')
+api$run(port=8000)
+
+
+
+```
+
+Isso vai criar dois containers, a aplicação (shiny) e a API com o modelo (plumber)
+
+deixa os containers conectados com Spark, Amazon S3 etc
+
+## Para ir além:
+
+Banco:
+-SQL injections attack (documentação SQL)
+Autenticação:
+-auth0 (curso R)
+Teste:
+-shinytest (ajuda a ver se tem alguma combinação de inputs que está com problema)
+-plotCachin (cache dos gráficos já requisitados)
+Deploy:
+-kubernetes (facilita subir os containers todos ao mesmo tempo, como vão se comunicar etc)
